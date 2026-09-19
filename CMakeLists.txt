@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 # include(FetchContent)
 
-project(Tokri VERSION 0.1 LANGUAGES CXX)
+project(Tokri VERSION 2026.09.19 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -80,6 +80,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         resources/icons.qrc
         src/logwindow.h src/logwindow.cpp
         src/helpwindow.h src/helpwindow.cpp
+        src/aboutwindow.h src/aboutwindow.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET Tokri APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -147,6 +148,7 @@ target_link_libraries(Tokri PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(Tokri PRIVATE Qt${QT_VERSION_MAJOR}::Concurrent)
 
 target_include_directories(Tokri PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(Tokri PRIVATE TOKRI_VERSION="${PROJECT_VERSION}")
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(APPLE)

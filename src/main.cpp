@@ -1,5 +1,6 @@
 #include "dropawarefilesystemmodel.h"
 #include "drophandler.h"
+#include "aboutwindow.h"
 #include "helpwindow.h"
 #include "loghelpers.h"
 #include "logwindow.h"
@@ -57,6 +58,10 @@ int main(int argc, char *argv[])
 #endif
     QApplication a(argc, argv);
     a.setQuitOnLastWindowClosed(false);
+    a.setApplicationName("Tokri");
+#ifdef TOKRI_VERSION
+    a.setApplicationVersion(TOKRI_VERSION);
+#endif
 
 #ifdef Q_OS_WIN
     a.setStyle(QStyleFactory::create("Fusion"));
@@ -89,6 +94,15 @@ int main(int argc, char *argv[])
                          helpWindow->raise();
                          helpWindow->activateWindow();
                          helpWindow->exec();
+                     });
+
+    AboutWindow *aboutWindow = new AboutWindow(&tokriWindow);
+    QAction *aboutAction = tokriWindow.uiHandle()->actionAbout;
+    QObject::connect(aboutAction, &QAction::triggered,
+                     aboutWindow, [aboutWindow] {
+                         aboutWindow->raise();
+                         aboutWindow->activateWindow();
+                         aboutWindow->exec();
                      });
 
     // Single Instance

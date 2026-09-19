@@ -35,6 +35,7 @@
     </property>
     <addaction name="actionLogs"/>
     <addaction name="actionHelp"/>
+    <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuView"/>
   </widget>
@@ -46,6 +47,11 @@
   <action name="actionHelp">
    <property name="text">
     <string>Keyboard Shortcuts</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
    </property>
   </action>
  </widget>
