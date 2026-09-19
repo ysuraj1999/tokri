@@ -13,6 +13,9 @@ void NoInternalDragListView::startDrag(Qt::DropActions supportedActions)
     const Qt::KeyboardModifiers mods = QGuiApplication::keyboardModifiers();
 #ifdef Q_OS_MACOS
     const bool copy = mods.testFlag(Qt::AltModifier);
+    if (copy) {
+        supportedActions = Qt::CopyAction;
+    }
 #else
     const bool copy = mods.testFlag(Qt::ControlModifier);
 #endif
