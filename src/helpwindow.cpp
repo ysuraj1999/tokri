@@ -10,13 +10,19 @@ struct Shortcut {
     const char *keys;
 };
 
+#if defined(Q_OS_WIN)
+constexpr const char *TrashLabel = "Delete";
+#else
+constexpr const char *TrashLabel = "Move to Trash";
+#endif
+
 const Shortcut kShortcuts[] = {
 #ifdef Q_OS_MACOS
     { "Open item",  "\u2318O" },
     { "Copy",       "\u2318C" },
     { "Paste",      "\u2318V" },
     { "Rename",     "\u21A9" },
-    { "Delete",     "\u2318\u232B" },
+    { TrashLabel,  "\u2318\u232B" },
     { "Select all", "\u2318A" },
     { "Hide basket", "Esc" },
 #else
@@ -24,7 +30,7 @@ const Shortcut kShortcuts[] = {
     { "Copy",       "Ctrl+C" },
     { "Paste",      "Ctrl+V" },
     { "Rename",     "F2" },
-    { "Delete",     "Delete" },
+    { TrashLabel,  "Delete" },
     { "Select all", "Ctrl+A" },
     { "Hide basket", "Esc" },
 #endif

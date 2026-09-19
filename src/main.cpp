@@ -135,10 +135,14 @@ int main(int argc, char *argv[])
 
     QIcon icon(":/tray.png");
     auto *tray = new QSystemTrayIcon(icon, &a);
-    tray->setToolTip("Tokri - Running");
+    tray->setToolTip("Tokri");
     auto *menu = new QMenu();
-    menu->addAction("Show", &tokriWindow, &TokriWindow::wakeUp);
-    menu->addAction("Quit", &a, &QCoreApplication::quit);
+    menu->addAction("&Open", &tokriWindow, &TokriWindow::wakeUp);
+#ifdef Q_OS_WIN
+    menu->addAction("E&xit", &a, &QCoreApplication::quit);
+#else
+    menu->addAction("&Quit", &a, &QCoreApplication::quit);
+#endif
     menu->setPalette(a.palette());
     tray->setContextMenu(menu);
 

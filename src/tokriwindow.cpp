@@ -91,10 +91,20 @@ TokriWindow::TokriWindow(QWidget *parent)
                 if (count > 0) {
                     open = menu.addAction("&Open");
                     copy = menu.addAction("&Copy");
+#ifdef Q_OS_WIN
                     del  = menu.addAction("&Delete");
+#else
+                    del  = menu.addAction("Move to &Trash");
+#endif
                 }
                 if (count == 1) {
-                    reveal= menu.addAction("Reveal in &Explorer");
+#ifdef Q_OS_MACOS
+                    reveal= menu.addAction("Reveal in &Finder");
+#elif defined(Q_OS_WIN)
+                    reveal= menu.addAction("Open &file location");
+#else
+                    reveal= menu.addAction("Open Containing &Folder");
+#endif
                     rename= menu.addAction("&Rename");
                 }
 
