@@ -114,6 +114,13 @@ if(APPLE)
     )
 endif()
 
+# Windows exe icon
+if(WIN32)
+    target_sources(Tokri PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources/tokri.rc
+    )
+endif()
+
 set_target_properties(Tokri PROPERTIES
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_GUI_IDENTIFIER "net.surajyadav.Tokri"
@@ -147,7 +154,7 @@ target_link_libraries(Tokri PRIVATE Qt${QT_VERSION_MAJOR}::Network)
 target_link_libraries(Tokri PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(Tokri PRIVATE Qt${QT_VERSION_MAJOR}::Concurrent)
 
-target_include_directories(Tokri PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(Tokri PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 target_compile_definitions(Tokri PRIVATE TOKRI_VERSION="${PROJECT_VERSION}")
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 

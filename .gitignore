@@ -32,6 +32,7 @@ qrc_*.cpp
 Thumbs.db
 *.res
 *.rc
+!resources/tokri.rc
 /.qmake.cache
 /.qmake.stash
 
