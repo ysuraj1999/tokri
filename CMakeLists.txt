@@ -11,6 +11,16 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+string(REGEX REPLACE "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$" "\\1-\\2-\\3"
+       TOKRI_RELEASE_DATE "${PROJECT_VERSION}")
+if(NOT TOKRI_RELEASE_DATE MATCHES "^[0-9]+-[0-9]+-[0-9]+$")
+    string(TIMESTAMP TOKRI_RELEASE_DATE "%Y-%m-%d")
+endif()
+
+configure_file(
+    resources/com.ysuraj.Tokri.metainfo.xml.in
+    "${CMAKE_CURRENT_BINARY_DIR}/com.ysuraj.Tokri.metainfo.xml" @ONLY)
+
 find_package(QT NAMES Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Gui)
@@ -123,7 +133,7 @@ endif()
 
 set_target_properties(Tokri PROPERTIES
     MACOSX_BUNDLE TRUE
-    MACOSX_BUNDLE_GUI_IDENTIFIER "net.surajyadav.Tokri"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.ysuraj.Tokri"
     MACOSX_BUNDLE_BUNDLE_NAME "Tokri"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING
@@ -172,11 +182,15 @@ endif()
 
 if(UNIX AND NOT APPLE)
         install(
-          FILES resources/net.surajyadav.Tokri.png
+          FILES resources/com.ysuraj.Tokri.png
           DESTINATION share/icons/hicolor/256x256/apps
         )
         install(
-          FILES resources/net.surajyadav.Tokri.desktop
+          FILES resources/com.ysuraj.Tokri.desktop
           DESTINATION share/applications
+        )
+        install(
+          FILES "${CMAKE_CURRENT_BINARY_DIR}/com.ysuraj.Tokri.metainfo.xml"
+          DESTINATION share/metainfo
         )
 endif()

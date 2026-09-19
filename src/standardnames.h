@@ -17,9 +17,9 @@ public:
         case Directory:
             return "Tokri";
         case LockFile:
-            return "net.surajyadav.Tokri.lock";
+            return "com.ysuraj.Tokri.lock";
         case LocalServer:
-            return "net.surajyadav.Tokri.ipc";
+            return "com.ysuraj.Tokri.ipc";
         default:
             return "";
         }

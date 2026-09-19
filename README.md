@@ -1,4 +1,4 @@
-<img src="./resources/net.surajyadav.Tokri.png" width="128" height="128" alt="Tokri icon">
+<img src="./resources/com.ysuraj.Tokri.png" width="128" height="128" alt="Tokri icon">
 
 # Tokri
 

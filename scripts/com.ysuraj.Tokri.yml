@@ -1,4 +1,4 @@
-app-id: net.surajyadav.Tokri
+app-id: com.ysuraj.Tokri
 runtime: org.kde.Platform
 runtime-version: "6.11"
 sdk: org.kde.Sdk

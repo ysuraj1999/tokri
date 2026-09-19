@@ -16,7 +16,7 @@ OutputDir=dist\installer
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
-SetupIconFile=resources\net.surajyadav.Tokri.ico
+SetupIconFile=resources\com.ysuraj.Tokri.ico
 UninstallDisplayIcon={app}\{#AppExe}
 WizardStyle=modern
 

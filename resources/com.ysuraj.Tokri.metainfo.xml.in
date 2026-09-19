@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.ysuraj.Tokri</id>
+  <launchable type="desktop-id">com.ysuraj.Tokri.desktop</launchable>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Tokri</name>
+  <summary>A desktop basket to drag and drop text, URLs, images, and files</summary>
+  <description>
+    <p>Tokri is a desktop basket that lets you drag and drop text, URLs, images,
+       and files into a temporary holding area and drag them back out when needed.</p>
+  </description>
+  <url type="homepage">https://github.com/ysuraj1999/tokri</url>
+  <url type="bugtracker">https://github.com/ysuraj1999/tokri/issues</url>
+  <categories>
+    <category>Utility</category>
+  </categories>
+  <releases>
+    <release version="@PROJECT_VERSION@" date="@TOKRI_RELEASE_DATE@"/>
+  </releases>
+</component>

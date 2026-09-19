@@ -38,11 +38,11 @@ void WindowIcons::apply(QApplication &app, QWidget &window)
 #if defined(Q_OS_LINUX)
     // One _NET_WM_ICON list: small entries are the titlebar icon, large
     // entries are the Alt+Tab/taskbar icon.
-    app.setDesktopFileName("net.surajyadav.Tokri");
+    app.setDesktopFileName("com.ysuraj.Tokri");
     QIcon windowIcon;
     windowIcon.addPixmap(tray.pixmap(16, 16));
     windowIcon.addPixmap(tray.pixmap(24, 24));
-    const QIcon switcher(":/net.surajyadav.Tokri.png");
+    const QIcon switcher(":/com.ysuraj.Tokri.png");
     windowIcon.addPixmap(switcher.pixmap(32, 32));
     windowIcon.addPixmap(switcher.pixmap(48, 48));
     windowIcon.addPixmap(switcher.pixmap(64, 64));
@@ -64,7 +64,7 @@ void WindowIcons::apply(QApplication &app, QWidget &window)
     static HICON previousSmall = nullptr;
     static HICON previousBig = nullptr;
 
-    const QIcon ico(":/net.surajyadav.Tokri.ico");
+    const QIcon ico(":/com.ysuraj.Tokri.ico");
     const QIcon &big = ico.isNull() ? tray : ico;
 
     HICON hSmall = tray.pixmap(16, 16).toImage().toHICON();
