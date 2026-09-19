@@ -1,5 +1,6 @@
 #include "dropawarefilesystemmodel.h"
 #include "drophandler.h"
+#include "helpwindow.h"
 #include "loghelpers.h"
 #include "logwindow.h"
 #include "themeprovider.h"
@@ -78,6 +79,16 @@ int main(int argc, char *argv[])
                          logWindow->show();
                          logWindow->raise();
                          logWindow->activateWindow();
+                     });
+
+    HelpWindow *helpWindow = new HelpWindow(&tokriWindow);
+    QAction *helpAction = tokriWindow.uiHandle()->actionHelp;
+    helpAction->setShortcut(QKeySequence(Qt::Key_F1));
+    QObject::connect(helpAction, &QAction::triggered,
+                     helpWindow, [helpWindow] {
+                         helpWindow->raise();
+                         helpWindow->activateWindow();
+                         helpWindow->exec();
                      });
 
     // Single Instance
