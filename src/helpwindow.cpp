@@ -37,11 +37,13 @@ HelpWindow::HelpWindow(QWidget *parent)
 {
     setWindowTitle(tr("Keyboard Shortcuts"));
     setModal(true);
+    setMinimumWidth(380);
 
     auto *layout = new QFormLayout(this);
     layout->setContentsMargins(16, 16, 16, 16);
-    layout->setHorizontalSpacing(32);
+    layout->setHorizontalSpacing(48);
     layout->setVerticalSpacing(8);
+    layout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
     for (const Shortcut &shortcut : kShortcuts) {
         auto *action = new QLabel(tr(shortcut.action), this);
