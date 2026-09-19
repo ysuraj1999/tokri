@@ -1,6 +1,7 @@
 #include "tokriwindow.h"
 #include "./ui_tokriwindow.h"
 #include "dropawarefilesystemmodel.h"
+#include "filereveal.h"
 #include "loghelpers.h"
 #include "standardpaths.h"
 #include "thumbnaildelegate.h"
@@ -10,11 +11,13 @@
 #include <QCloseEvent>
 #include <QDesktopServices>
 #include <QFile>
+#include <QFileInfo>
 #include <QFileSystemModel>
 #include <QFrame>
 #include <QApplication>
 #include <QClipboard>
 #include <QScrollBar>
+#include <QUrl>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -144,8 +147,8 @@ TokriWindow::TokriWindow(QWidget *parent)
                 }
 
                 if (count == 1 && chosen == reveal) {
-                    QDesktopServices::openUrl(
-                        QUrl::fromLocalFile(fileInfoAt(selected[0]).absolutePath()));
+                    FileReveal::revealInFileManager(
+                        fileInfoAt(selected[0]).absoluteFilePath());
                     log.pop();
                     return;
                 }

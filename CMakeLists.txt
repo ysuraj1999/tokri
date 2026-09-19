@@ -27,6 +27,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Gui)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Concurrent)
+find_package(Qt${QT_VERSION_MAJOR} OPTIONAL_COMPONENTS DBus)
 
 set(PROJECT_SOURCES
         src/main.cpp
@@ -35,6 +36,8 @@ set(PROJECT_SOURCES
         src/tokriwindow.ui
         src/windowicons.h
         src/windowicons.cpp
+        src/filereveal.h
+        src/filereveal.cpp
 )
 
 set(LINUX_SOURCES "")
@@ -178,6 +181,11 @@ if(WIN32)
     target_link_libraries(Tokri PRIVATE
         user32
     )
+endif()
+
+if(UNIX AND NOT APPLE AND TARGET Qt${QT_VERSION_MAJOR}::DBus)
+    target_link_libraries(Tokri PRIVATE Qt${QT_VERSION_MAJOR}::DBus)
+    target_compile_definitions(Tokri PRIVATE TOKRI_HAVE_DBUS)
 endif()
 
 if(UNIX AND NOT APPLE)
