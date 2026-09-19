@@ -14,51 +14,64 @@
 #include <windows.h>
 #endif
 
-namespace {
-
-#ifndef Q_OS_MACOS
-QIcon themedWindowIcon()
+void WindowIcons::apply(QApplication &app, QWidget &window)
 {
-    QPixmap pm(":/tray.png");
-    if (ThemeProvider::isDark())
-        return QIcon(pm);
+#if defined(Q_OS_MACOS)
+    // Icon comes from the bundle's Tokri.icns.
+    Q_UNUSED(app);
+    Q_UNUSED(window);
+#else
+    const QIcon tray = [] {
+        QPixmap pm(":/tray.png");
+        if (ThemeProvider::isDark())
+            return QIcon(pm);
+        QPixmap dark(pm.size());
+        dark.fill(Qt::transparent);
+        QPainter p(&dark);
+        p.drawPixmap(0, 0, pm);
+        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        p.fillRect(dark.rect(), QColor("#141216"));
+        p.end();
+        return QIcon(dark);
+    }();
 
-    QPixmap dark(pm.size());
-    dark.fill(Qt::transparent);
-    QPainter p(&dark);
-    p.drawPixmap(0, 0, pm);
-    p.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    p.fillRect(dark.rect(), QColor("#141216"));
-    p.end();
-    return QIcon(dark);
-}
+#if defined(Q_OS_LINUX)
+    // One _NET_WM_ICON list: small entries are the titlebar icon, large
+    // entries are the Alt+Tab/taskbar icon.
+    app.setDesktopFileName("net.surajyadav.Tokri");
+    QIcon windowIcon;
+    windowIcon.addPixmap(tray.pixmap(16, 16));
+    windowIcon.addPixmap(tray.pixmap(24, 24));
+    const QIcon switcher(":/net.surajyadav.Tokri.png");
+    windowIcon.addPixmap(switcher.pixmap(32, 32));
+    windowIcon.addPixmap(switcher.pixmap(48, 48));
+    windowIcon.addPixmap(switcher.pixmap(64, 64));
+    windowIcon.addPixmap(switcher.pixmap(128, 128));
+    windowIcon.addPixmap(switcher.pixmap(256, 256));
+    app.setWindowIcon(windowIcon);
+#else
+    app.setWindowIcon(tray);
 #endif
 
-#ifdef Q_OS_WIN
-QIcon appTaskbarIcon()
-{
-    QIcon ico(":/net.surajyadav.Tokri.ico");
-    return ico.isNull() ? themedWindowIcon() : ico;
-}
-
-void applyWindowsWindowIcons(QWidget &window)
-{
+#if defined(Q_OS_WIN)
     QWindow *handle = window.windowHandle();
     if (!handle)
-        return; // Native window not created yet; applied again after show().
-
-    HWND hwnd = (HWND)handle->winId();
+        return;
+    HWND hwnd = reinterpret_cast<HWND>(handle->winId());
     if (!hwnd)
         return;
 
     static HICON previousSmall = nullptr;
     static HICON previousBig = nullptr;
 
-    HICON hSmall = themedWindowIcon().pixmap(16, 16).toImage().toHICON();
-    HICON hBig = appTaskbarIcon().pixmap(256, 256).toImage().toHICON();
+    const QIcon ico(":/net.surajyadav.Tokri.ico");
+    const QIcon &big = ico.isNull() ? tray : ico;
 
-    SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hSmall);
-    SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hBig);
+    HICON hSmall = tray.pixmap(16, 16).toImage().toHICON();
+    HICON hBig = big.pixmap(256, 256).toImage().toHICON();
+
+    SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmall));
+    SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBig));
 
     if (previousSmall)
         DestroyIcon(previousSmall);
@@ -66,26 +79,6 @@ void applyWindowsWindowIcons(QWidget &window)
         DestroyIcon(previousBig);
     previousSmall = hSmall;
     previousBig = hBig;
-}
 #endif
-
-} // namespace
-
-namespace WindowIcons {
-
-void apply(QApplication &app, QWidget &window)
-{
-#if defined(Q_OS_WIN)
-    app.setWindowIcon(themedWindowIcon());
-    applyWindowsWindowIcons(window);
-#elif defined(Q_OS_MACOS)
-    // No-op: the icon is supplied by the bundle's Tokri.icns.
-    Q_UNUSED(app);
-    Q_UNUSED(window);
-#else
-    app.setWindowIcon(themedWindowIcon());
-    Q_UNUSED(window);
 #endif
 }
-
-} // namespace WindowIcons

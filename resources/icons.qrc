@@ -3,5 +3,6 @@
         <file>tray.png</file>
         <file>background.png</file>
         <file>net.surajyadav.Tokri.ico</file>
+        <file>net.surajyadav.Tokri.png</file>
     </qresource>
 </RCC>
