@@ -35,7 +35,7 @@
 > **System Settings → Privacy & Security → Open Anyway**
 
 ### Linux
-- Flatpak bundle: [Tokri.flatpak](https://github.com/jarusll/tokri/releases/latest/download/Tokri.flatpak)
+- Flatpak bundle: [com.ysuraj.Tokri.flatpak](https://github.com/jarusll/tokri/releases/latest/download/com.ysuraj.Tokri.flatpak)
 
 > **Note for Linux users**
 >
