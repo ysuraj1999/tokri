@@ -8,28 +8,17 @@
 - Drag items **out** to move them
 - Hold Ctrl (Windows/Linux) or ⌥ Option (macOS) while dragging to copy
 
-## Images
-![](./assets/image.gif)
-
-## Text & URLs
-![](./assets/text.gif)
-
-## Files
-![](./assets/files.gif)
+## Demo
+![](./assets/demo.gif)
 
 ## Download
 
 ### Windows
-- Installer: [TokriSetup.exe](https://github.com/jarusll/tokri/releases/download/v2026.03.01/TokriSetup.exe)
-- Portable (.zip): [Tokri.zip](https://github.com/jarusll/tokri/releases/download/v2026.03.01/Tokri.zip)
+- Installer: [TokriSetup.exe](https://github.com/jarusll/tokri/releases/latest/download/TokriSetup.exe)
+- Portable (.zip): [Tokri.zip](https://github.com/jarusll/tokri/releases/latest/download/Tokri.zip)
 
 ### macOS
-- DMG installer: [Tokri.dmg](https://github.com/jarusll/tokri/releases/download/v2026.03.01/Tokri.dmg)
-- Install via Homebrew:
-    ```zsh
-    brew tap jarusll/tap
-    brew install --cask jarusll/tap/tokri
-    ```
+- DMG installer: [Tokri.dmg](https://github.com/jarusll/tokri/releases/latest/download/Tokri.dmg)
 
 > **Note for macOS users**
 >
@@ -46,7 +35,7 @@
 > **System Settings → Privacy & Security → Open Anyway**
 
 ### Linux
-- Flatpak bundle: [Tokri.flatpak](https://github.com/jarusll/tokri/releases/download/v2026.03.01/Tokri.flatpak)
+- Flatpak bundle: [Tokri.flatpak](https://github.com/jarusll/tokri/releases/latest/download/Tokri.flatpak)
 
 > **Note for Linux users**
 >
@@ -59,30 +48,6 @@
 >
 > Log out and log back in for the change to take effect.
 
-> **Note for KDE users**
->
-> Mouse shake activation does not work on **KDE Wayland**.
->
-> Run the app under **XWayland** by disabling Wayland access:
-> - Open **Flatseal**
-> - Select the app
-> - Remove the **Wayland** permission
->
-> This forces XWayland and restores mouse shake activation.
->
-> ![](./assets/flatseal.png)
-
-## Building for Linux
-
-#### Dependencies
-- qt6-base
-
-### Build
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-```
-
 ## Acknowledgements
 - [KDAB](https://www.youtube.com/@KDABtv) for their awesome Qt learning resources
-- 🎨 Design by [Akshay Majgaonkar](https://www.linkedin.com/in/akshay-majgaonkar/)
+- 🎨 Icons and colors by [Akshay Majgaonkar](https://www.linkedin.com/in/akshay-majgaonkar/)
