@@ -4,6 +4,8 @@ runtime-version: "6.11"
 sdk: org.kde.Sdk
 command: Tokri
 finish-args:
+  - --unset-env=GTK3_MODULES
+  - --unset-env=SESSION_MANAGER
   - --socket=x11
   - --share=ipc
   - --device=dri
