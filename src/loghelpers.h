@@ -70,9 +70,7 @@ inline QString describeMimeData(const QMimeData *md)
     if (!md)
         return QStringLiteral("<null mimeData>");
 
-    QStringList fmts;
-    for (const QString &f : md->formats())
-        fmts << QStringLiteral("%1(%2)").arg(f).arg(md->data(f).size());
+    const QStringList fmts = md->formats();
 
     return QStringLiteral("hasUrls=%1 hasImage=%2 hasText=%3 hasHtml=%4 formats=[%5]")
         .arg(md->hasUrls()).arg(md->hasImage())

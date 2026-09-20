@@ -51,27 +51,13 @@ bool DropAwareFileSystemModel::canDropMimeData(const QMimeData *data,
     Q_UNUSED(column);
     Q_UNUSED(parent);
 
-    Logger &log = Logger::instance();
-    log.push("canDropMimeData");
-
-    if (action == Qt::IgnoreAction) {
-        log.log() << "action=IgnoreAction -> true";
-        log.pop();
+    if (action == Qt::IgnoreAction)
         return true;
-    }
 
-    if (!data) {
-        log.log() << "null data -> false";
-        log.pop();
+    if (!data)
         return false;
-    }
 
-    const bool ok = isPasteable(data);
-
-    log.log() << describeMimeData(data) << "->" << ok;
-
-    log.pop();
-    return ok;
+    return isPasteable(data);
 }
 
 bool DropAwareFileSystemModel::dropMimeData(const QMimeData *data,
@@ -143,6 +129,17 @@ Qt::DropActions DropAwareFileSystemModel::supportedDragActions() const {
     log.push("supportedDragActions");
 
     const Qt::DropActions actions = Qt::CopyAction | Qt::MoveAction;
+    log.log() << "->" << actions;
+
+    log.pop();
+    return actions;
+}
+
+Qt::DropActions DropAwareFileSystemModel::supportedDropActions() const {
+    Logger &log = Logger::instance();
+    log.push("supportedDropActions");
+
+    const Qt::DropActions actions = Qt::CopyAction;
     log.log() << "->" << actions;
 
     log.pop();

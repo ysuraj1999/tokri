@@ -17,6 +17,10 @@ public:
     explicit ThumbnailProxyModel(QObject *parent = nullptr);
     QVariant data(const QModelIndex &index, int role) const override;
 
+    bool canDropMimeData(const QMimeData *data, Qt::DropAction action,
+                         int row, int column,
+                         const QModelIndex &parent) const override;
+
 public slots:
     void setVisibleCount(int count);
 

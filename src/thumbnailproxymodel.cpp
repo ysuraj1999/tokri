@@ -7,6 +7,7 @@
 #include <QFutureWatcher>
 #include <QIcon>
 #include <QImageReader>
+#include <QMimeData>
 #include <QMimeDatabase>
 #include <QMimeType>
 #include <QThread>
@@ -73,6 +74,18 @@ ThumbnailProxyModel::ThumbnailProxyModel(QObject *parent)
     mDebounceTimer.setInterval(WindowMs);
     connect(&mDebounceTimer, &QTimer::timeout, this,
             &ThumbnailProxyModel::dispatchPendingRequests);
+}
+
+bool ThumbnailProxyModel::canDropMimeData(const QMimeData *data,
+                                          Qt::DropAction action,
+                                          int row, int column,
+                                          const QModelIndex &parent) const
+{
+    QAbstractItemModel *src = sourceModel();
+    if (!src)
+        return false;
+    return src->canDropMimeData(data, action, row, column,
+                                mapToSource(parent));
 }
 
 QVariant ThumbnailProxyModel::data(const QModelIndex &index, int role) const

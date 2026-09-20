@@ -2,10 +2,23 @@
 // #include <rapidfuzz/fuzz.hpp>
 
 #include <QFileSystemModel>
+#include <QMimeData>
 
 FSSortFilterProxy::FSSortFilterProxy(QObject *parent)
     : QSortFilterProxyModel{parent}
 {}
+
+bool FSSortFilterProxy::canDropMimeData(const QMimeData *data,
+                                        Qt::DropAction action,
+                                        int row, int column,
+                                        const QModelIndex &parent) const
+{
+    QAbstractItemModel *src = sourceModel();
+    if (!src)
+        return false;
+    return src->canDropMimeData(data, action, row, column,
+                                mapToSource(parent));
+}
 
 bool FSSortFilterProxy::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {

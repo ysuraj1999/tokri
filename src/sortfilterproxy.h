@@ -11,6 +11,10 @@ public:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
     bool filterAcceptsRow(int row, const QModelIndex &parent) const;
 
+    bool canDropMimeData(const QMimeData *data, Qt::DropAction action,
+                         int row, int column,
+                         const QModelIndex &parent) const override;
+
     void setSearch(const QString &string);
 
 private:

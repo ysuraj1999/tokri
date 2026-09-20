@@ -6,6 +6,18 @@
 #include <QGuiApplication>
 #include <QMouseEvent>
 
+namespace {
+
+void preferCopy(QDropEvent *e)
+{
+    if (e->isAccepted()) {
+        e->setDropAction(Qt::CopyAction);
+        e->accept();
+    }
+}
+
+}
+
 NoInternalDragListView::NoInternalDragListView() {}
 
 void NoInternalDragListView::startDrag(Qt::DropActions supportedActions)
@@ -40,37 +52,25 @@ NoInternalDragListView::selectionCommand(const QModelIndex &index,
 
 void NoInternalDragListView::dragEnterEvent(QDragEnterEvent *e)
 {
-    Logger &log = Logger::instance();
-    log.push("dragEnter");
-
     const bool isSelf = e->source() == this;
-    log.log() << "source==this=" << isSelf
-              << "formats=" << e->mimeData()->formats();
     if (isSelf)
         e->ignore();
     else {
         emit dropping(true);
         QListView::dragEnterEvent(e);
+        preferCopy(e);
     }
-    log.log() << "accepted=" << e->isAccepted();
-
-    log.pop();
 }
 
 void NoInternalDragListView::dragMoveEvent(QDragMoveEvent *e)
 {
-    Logger &log = Logger::instance();
-    log.push("dragMove");
-
     const bool isSelf = e->source() == this;
     if (isSelf)
         e->ignore();
-    else
+    else {
         QListView::dragMoveEvent(e);
-    log.log() << "source==this=" << isSelf
-              << "accepted=" << e->isAccepted();
-
-    log.pop();
+        preferCopy(e);
+    }
 }
 
 void NoInternalDragListView::dragLeaveEvent(QDragLeaveEvent *e)
@@ -96,6 +96,8 @@ void NoInternalDragListView::dropEvent(QDropEvent *e)
               << "possibleActions=" << e->possibleActions()
               << "formats=" << e->mimeData()->formats();
     emit dropping(false);
+
+    e->setDropAction(Qt::CopyAction);
 
     QListView::dropEvent(e);
 
