@@ -8,6 +8,10 @@
 - Drag items **out** to move them
 - Hold Ctrl (Windows/Linux) or ⌥ Option (macOS) while dragging to copy
 
+## Tip
+
+Set a global shortcut for Tokri using your OS or shortcut manager. Once configured, pressing it will summon your basket from anywhere.
+
 ## Demo
 ![](./assets/demo.gif)
 
