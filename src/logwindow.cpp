@@ -43,6 +43,9 @@ void LogSink::handler(QtMsgType type,
     const QString line =
         QTime::currentTime().toString("HH:mm:ss.zzz") + QLatin1Char(' ') + msg;
 
+    fprintf(stderr, "%s\n", qPrintable(line));
+    fflush(stderr);
+
     LogSink *sink = LogSink::instance();
     {
         QMutexLocker locker(&sink->m_mutex);

@@ -1,13 +1,16 @@
 #ifndef TOKRIWINDOW_H
 #define TOKRIWINDOW_H
 
-#include <QListView>
-#include <QMainWindow>
+#include <QCloseEvent>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
-#include <QMimeData>
-#include <QCloseEvent>
+#include <QFrame>
 #include <QList>
+#include <QListView>
+#include <QMainWindow>
+#include <QMimeData>
+#include <QTimer>
+#include <QToolButton>
 #include <QUrl>
 
 QT_BEGIN_NAMESPACE
@@ -28,6 +31,10 @@ public:
     void wakeUp();
 
 public slots:
+    void applyTheme();
+    void setChromeVisible(bool visible);
+    void toggleChrome();
+    void resetInactivityTimer();
     void onShakeDetect();
     void deleteSelection();
     void renameSelection();
@@ -37,6 +44,15 @@ public slots:
 
 signals:
     void pasteRequested();
+    void themeChanged(bool isDark);
+
+protected:
+    void showEvent(QShowEvent *e) override;
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+    void closeEvent(QCloseEvent *e) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
 
 private:
     Ui::TokriWindow *ui;
@@ -44,8 +60,22 @@ private:
     void init();
     void applyColumnSizing();
     void moveNearCursor();
-    void closeEvent(QCloseEvent *e);
     void openItem(QString filePath);
     QList<QUrl> selectedUrls() const;
+    void setWindowButtonsVisible(bool visible);
+    void onInactivityTimeout();
+
+#ifdef Q_OS_WIN
+    void updateWindowsTitleBarTheme(bool dark);
+#endif
+
+    bool mChromeVisible = false;
+    bool mAltKeyPressedAlone = false;
+    QPoint mDragPosition;
+    QTimer mInactivityTimer;
+
+    QWidget *mHeaderBar = nullptr;
+    QFrame *mDragHandle = nullptr;
+    QToolButton *mCloseButton = nullptr;
 };
 #endif // TOKRIWINDOW_H

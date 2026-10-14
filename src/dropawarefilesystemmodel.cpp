@@ -1,6 +1,10 @@
 #include "dropawarefilesystemmodel.h"
 
 #include "loghelpers.h"
+#include "textfile.h"
+
+#include <QFileInfo>
+#include <QUrl>
 
 namespace {
 
@@ -104,6 +108,25 @@ QVariant DropAwareFileSystemModel::data(const QModelIndex &index, int role) cons
     }
 
     if (role == Qt::ToolTipRole){
+        const QString path = filePath(index);
+        const QFileInfo fi = fileInfo(index);
+        if (!fi.isFile())
+            return fileName(index);
+
+        if (TextFile::isTextFile(path)) {
+            auto it = mToolTipCache.find(path);
+            if (it != mToolTipCache.end()
+                && it->lastModified == fi.lastModified()
+                && it->size == fi.size()) {
+                return it->text;
+            }
+
+            const QString snippet = TextFile::readTextSnippet(path, 1000, 25);
+            const QString tip = snippet.trimmed().isEmpty() ? fileName(index) : snippet;
+            mToolTipCache.insert(path, {fi.lastModified(), fi.size(), tip});
+            return tip;
+        }
+
         return fileName(index);
     }
 
@@ -116,6 +139,44 @@ QMimeData* DropAwareFileSystemModel::mimeData(const QModelIndexList &indexes) co
     log.push("mimeData");
 
     QMimeData *mime = QFileSystemModel::mimeData(indexes);
+    if (!mime) {
+        log.log() << "QFileSystemModel::mimeData returned null";
+        log.pop();
+        return nullptr;
+    }
+
+    const QList<QUrl> urls = mime->urls();
+    if (!urls.isEmpty()) {
+        // Ensure text/plain is populated for drop targets that don't read text/uri-list
+        // (such as text fields, web forms, terminals, and generic drop zones).
+        QStringList paths;
+        paths.reserve(urls.size());
+        for (const QUrl &u : urls) {
+            paths.append(u.isLocalFile() ? u.toLocalFile() : u.toString());
+        }
+        mime->setText(paths.join(QLatin1Char('\n')));
+
+#ifdef Q_OS_LINUX
+        // GNOME Nautilus / Files native format: x-special/gnome-copied-files
+        // Format: "copy\nfile:///path/to/file1\nfile:///path/to/file2\n"
+        QByteArray gnomeData = "copy\n";
+        for (const QUrl &u : urls) {
+            gnomeData += u.toEncoded() + "\n";
+        }
+        mime->setData(QStringLiteral("x-special/gnome-copied-files"), gnomeData);
+
+        // Mozilla Firefox drag format: text/x-moz-url
+        // Format: URL + '\n' + Title (UTF-16 encoding)
+        const QUrl &firstUrl = urls.first();
+        const QString title = firstUrl.isLocalFile()
+                                  ? QFileInfo(firstUrl.toLocalFile()).fileName()
+                                  : firstUrl.toString();
+        const QString mozStr = firstUrl.toString() + QLatin1Char('\n') + title;
+        QByteArray mozData(reinterpret_cast<const char *>(mozStr.utf16()),
+                           mozStr.size() * static_cast<int>(sizeof(char16_t)));
+        mime->setData(QStringLiteral("text/x-moz-url"), mozData);
+#endif
+    }
 
     log.log() << "drag-out indexes=" << indexes.size()
               << describeMimeData(mime);

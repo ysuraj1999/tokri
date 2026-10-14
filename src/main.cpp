@@ -12,6 +12,7 @@
 #include "standardnames.h"
 #include "standardpaths.h"
 #include "windowicons.h"
+#include "fullscreenhelper.h"
 
 #ifdef Q_OS_WIN
 #include "windowsdragshakedetector.h"
@@ -54,7 +55,15 @@
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_LINUX
-    qputenv("QT_QPA_PLATFORM", "xcb");
+    // Allow native Wayland when running on a Wayland compositor session (e.g. GNOME/KDE Wayland),
+    // eliminating XWayland drag-and-drop bridging issues with native Wayland apps like Firefox and Nautilus.
+    // Falls back to xcb on pure X11 sessions, and respects any user-set QT_QPA_PLATFORM.
+    if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM")) {
+        const bool isWayland = qEnvironmentVariableIsSet("WAYLAND_DISPLAY");
+        if (!isWayland) {
+            qputenv("QT_QPA_PLATFORM", "xcb");
+        }
+    }
 #endif
     QApplication a(argc, argv);
     a.setQuitOnLastWindowClosed(false);
@@ -72,6 +81,8 @@ int main(int argc, char *argv[])
     LogSink::install();
     QThread::currentThread()->setObjectName("main");
     Logger::instance().log() << "Tokri starting";
+
+    FullscreenHelper::initPlatformPermissions();
 
     QLocalServer server;
     TokriWindow tokriWindow;
@@ -133,8 +144,21 @@ int main(int argc, char *argv[])
     }
 
 
-    QIcon icon(":/tray.png");
-    auto *tray = new QSystemTrayIcon(icon, &a);
+    const auto getTrayIcon = [] {
+        QPixmap pm(":/tray.png");
+        if (ThemeProvider::isTaskbarDark())
+            return QIcon(pm);
+        QPixmap light(pm.size());
+        light.fill(Qt::transparent);
+        QPainter p(&light);
+        p.drawPixmap(0, 0, pm);
+        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        p.fillRect(light.rect(), QColor("#141216"));
+        p.end();
+        return QIcon(light);
+    };
+
+    auto *tray = new QSystemTrayIcon(getTrayIcon(), &a);
     tray->setToolTip("Tokri");
     auto *menu = new QMenu();
     menu->addAction("&Open", &tokriWindow, &TokriWindow::wakeUp);
@@ -146,15 +170,15 @@ int main(int argc, char *argv[])
     menu->setPalette(a.palette());
     tray->setContextMenu(menu);
 
-    const auto applyTheme = [&a, menu, &tokriWindow] {
-        a.setPalette(ThemeProvider::theme());
-        WindowIcons::apply(a, tokriWindow);
-        menu->setPalette(a.palette());
+    const auto applyTheme = [menu, tray, getTrayIcon, &tokriWindow] {
+        tokriWindow.applyTheme();
+        menu->setPalette(tokriWindow.palette());
+        tray->setIcon(getTrayIcon());
     };
 
     QObject::connect(QGuiApplication::styleHints(),
                      &QStyleHints::colorSchemeChanged,
-                     tray,
+                     &tokriWindow,
                      [applyTheme](Qt::ColorScheme) {
                          applyTheme();
                      });
@@ -218,6 +242,14 @@ int main(int argc, char *argv[])
 
     ThumbnailProxyModel *thumbnailProxy = new ThumbnailProxyModel(&tokriWindow);
     thumbnailProxy->setSourceModel(fsModel);
+    QObject::connect(QGuiApplication::styleHints(),
+                     &QStyleHints::colorSchemeChanged,
+                     thumbnailProxy,
+                     &ThumbnailProxyModel::clearCache);
+    QObject::connect(&tokriWindow,
+                     &TokriWindow::themeChanged,
+                     thumbnailProxy,
+                     &ThumbnailProxyModel::clearCache);
 
     QAction *pasteAction = new QAction(&tokriWindow);
     pasteAction->setShortcuts(QKeySequence::keyBindings(QKeySequence::Paste));
@@ -338,7 +370,7 @@ int main(int argc, char *argv[])
         interceptor,
         &LinuxDragShakeDetector::shakeDetected,
         &tokriWindow,
-        &TokriWindow::wakeUp,
+        &TokriWindow::onShakeDetect,
         Qt::QueuedConnection
         );
 #endif
@@ -349,7 +381,7 @@ int main(int argc, char *argv[])
         interceptor,
         &WindowsDragShakeDetector::shakeDetected,
         &tokriWindow,
-        &TokriWindow::wakeUp,
+        &TokriWindow::onShakeDetect,
         Qt::QueuedConnection
         );
 #endif
@@ -361,7 +393,7 @@ int main(int argc, char *argv[])
         interceptor,
         &MacOSDragShakeDetector::shakeDetected,
         &tokriWindow,
-        &TokriWindow::wakeUp
+        &TokriWindow::onShakeDetect
         );
 #endif
 

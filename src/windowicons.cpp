@@ -23,16 +23,18 @@ void WindowIcons::apply(QApplication &app, QWidget &window)
 #else
     const QIcon tray = [] {
         QPixmap pm(":/tray.png");
-        if (ThemeProvider::isDark())
+        const bool darkTaskbar = ThemeProvider::isTaskbarDark();
+        if (darkTaskbar)
             return QIcon(pm);
-        QPixmap dark(pm.size());
-        dark.fill(Qt::transparent);
-        QPainter p(&dark);
+        // On a light taskbar, render a crisp dark icon (#141216)
+        QPixmap light(pm.size());
+        light.fill(Qt::transparent);
+        QPainter p(&light);
         p.drawPixmap(0, 0, pm);
         p.setCompositionMode(QPainter::CompositionMode_SourceIn);
-        p.fillRect(dark.rect(), QColor("#141216"));
+        p.fillRect(light.rect(), QColor("#141216"));
         p.end();
-        return QIcon(dark);
+        return QIcon(light);
     }();
 
 #if defined(Q_OS_LINUX)
@@ -49,26 +51,23 @@ void WindowIcons::apply(QApplication &app, QWidget &window)
     windowIcon.addPixmap(switcher.pixmap(128, 128));
     windowIcon.addPixmap(switcher.pixmap(256, 256));
     app.setWindowIcon(windowIcon);
+    window.setWindowIcon(windowIcon);
 #else
     app.setWindowIcon(tray);
+    window.setWindowIcon(tray);
 #endif
 
 #if defined(Q_OS_WIN)
-    QWindow *handle = window.windowHandle();
-    if (!handle)
-        return;
-    HWND hwnd = reinterpret_cast<HWND>(handle->winId());
+    HWND hwnd = reinterpret_cast<HWND>(window.winId());
     if (!hwnd)
         return;
 
     static HICON previousSmall = nullptr;
     static HICON previousBig = nullptr;
 
-    const QIcon ico(":/com.ysuraj.Tokri.ico");
-    const QIcon &big = ico.isNull() ? tray : ico;
-
+    // Use the theme-adapted icon for both small (titlebar) and big (taskbar/Alt+Tab)
     HICON hSmall = tray.pixmap(16, 16).toImage().toHICON();
-    HICON hBig = big.pixmap(256, 256).toImage().toHICON();
+    HICON hBig   = tray.pixmap(48, 48).toImage().toHICON();
 
     SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmall));
     SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBig));

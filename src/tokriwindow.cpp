@@ -2,10 +2,13 @@
 #include "./ui_tokriwindow.h"
 #include "dropawarefilesystemmodel.h"
 #include "filereveal.h"
+#include "fullscreenhelper.h"
 #include "loghelpers.h"
 #include "standardpaths.h"
+#include "themeprovider.h"
 #include "thumbnaildelegate.h"
 #include "thumbnaillayout.h"
+#include "windowicons.h"
 #include <QDir>
 #include <QMenu>
 #include <QCloseEvent>
@@ -16,11 +19,22 @@
 #include <QFrame>
 #include <QApplication>
 #include <QClipboard>
+#include <QKeyEvent>
 #include <QScrollBar>
 #include <QUrl>
+#include <QToolButton>
+#include <QHBoxLayout>
+#include <QWindow>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <dwmapi.h>
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
 #endif
 
 TokriWindow::TokriWindow(QWidget *parent)
@@ -29,8 +43,63 @@ TokriWindow::TokriWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // Add Exit action as the last item in the View menu
+    ui->menuView->addSeparator();
+    QAction *exitAction = ui->menuView->addAction(tr("E&xit"));
+    connect(exitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
+
     init();
-    setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
+    setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint);
+
+    // Build the frameless top header bar (drag area + small X button)
+    mHeaderBar = new QWidget(this);
+    mHeaderBar->setFixedHeight(22);
+    mHeaderBar->setCursor(Qt::SizeAllCursor); // Visual feedback that the header area is draggable
+
+    auto *headerLayout = new QHBoxLayout(mHeaderBar);
+    headerLayout->setContentsMargins(0, 0, 2, 0);
+    headerLayout->setSpacing(0);
+
+    // Centered pill / drag handle line (resembling picture)
+    headerLayout->addStretch(1);
+
+    mDragHandle = new QFrame(mHeaderBar);
+    mDragHandle->setFixedHeight(4);
+    mDragHandle->setFixedWidth(64); // ~20% of window width, pill-shaped horizontal drag bar
+    mDragHandle->setCursor(Qt::SizeAllCursor);
+    headerLayout->addWidget(mDragHandle, 0, Qt::AlignCenter);
+
+    headerLayout->addStretch(1);
+
+    mCloseButton = new QToolButton(mHeaderBar);
+    mCloseButton->setFixedSize(18, 18);
+    mCloseButton->setText(QStringLiteral("✕"));
+    mCloseButton->setCursor(Qt::PointingHandCursor);
+    mCloseButton->setToolTip(tr("Hide"));
+    connect(mCloseButton, &QToolButton::clicked, this, &TokriWindow::sleep);
+
+    headerLayout->addWidget(mCloseButton);
+
+    // Insert header bar at the top of the central layout (above the list view)
+    auto *centralLayout = qobject_cast<QVBoxLayout *>(ui->centralwidget->layout());
+    if (centralLayout) {
+        centralLayout->insertWidget(0, mHeaderBar);
+    }
+
+    ui->centralwidget->layout()->setContentsMargins(6, 4, 6, 6);
+    ui->centralwidget->layout()->setSpacing(2);
+    applyTheme();
+
+    // 1-minute inactivity timer
+    mInactivityTimer.setInterval(60000); // 1 minute (60,000 ms)
+    mInactivityTimer.setSingleShot(true);
+    connect(&mInactivityTimer, &QTimer::timeout, this, &TokriWindow::onInactivityTimeout);
+
+    // Filter events across Tokri to detect Alt key and reset inactivity timer
+    qApp->installEventFilter(this);
+
+    // Hide window menu and titlebar buttons by default
+    setChromeVisible(false);
 
     ui->listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->listView->setItemDelegate(new ThumbnailDelegate(ui->listView));
@@ -190,6 +259,7 @@ void TokriWindow::sleep()
     log.push("sleep");
     log.log() << "-> hide";
 
+    mInactivityTimer.stop();
     hide();
 
     log.pop();
@@ -199,6 +269,15 @@ void TokriWindow::wakeUp()
 {
     Logger &log = Logger::instance();
     log.push("wakeUp");
+
+    // Check and apply active system theme the moment the window opens
+    applyTheme();
+
+    // Hide window menu and titlebar buttons by default
+    setChromeVisible(false);
+
+    // Reset 1-minute inactivity countdown
+    resetInactivityTimer();
 
     const bool minimized = isMinimized();
     const bool hidden = !isVisible();
@@ -257,7 +336,11 @@ void TokriWindow::moveNearCursor()
     const QSize  winSize = size();
     QPoint p(cursor.x() + 20, cursor.y() + 20);
 
-    const QRect screen = QGuiApplication::screenAt(cursor)->availableGeometry();
+    QScreen *targetScreen = QGuiApplication::screenAt(cursor);
+    if (!targetScreen)
+        targetScreen = QGuiApplication::primaryScreen();
+    const QRect screen = targetScreen ? targetScreen->availableGeometry()
+                                      : QRect(0, 0, 1920, 1080);
 
     if (p.x() + winSize.width() > screen.right())
         p.setX(screen.right() - winSize.width());
@@ -276,6 +359,12 @@ void TokriWindow::onShakeDetect()
     Logger &log = Logger::instance();
     log.push("onShakeDetect");
     log.log() << "shake";
+
+    if (FullscreenHelper::isForegroundFullscreenOrGaming(this)) {
+        log.log() << "Shake ignored: foreground application is fullscreen or gaming";
+        log.pop();
+        return;
+    }
 
     wakeUp();
 
@@ -434,5 +523,349 @@ void TokriWindow::closeEvent(QCloseEvent *e)
     sleep();
 
     log.pop();
+}
+
+void TokriWindow::showEvent(QShowEvent *e)
+{
+    QMainWindow::showEvent(e);
+    // Check and apply active system theme the moment the window opens
+    applyTheme();
+
+    // Reset 1-minute inactivity countdown
+    resetInactivityTimer();
+}
+
+void TokriWindow::setChromeVisible(bool visible)
+{
+    mChromeVisible = visible;
+    if (ui->menuBar)
+        ui->menuBar->setVisible(visible);
+
+    // Keep app name "Tokri"
+    setWindowTitle(QStringLiteral("Tokri"));
+
+    const bool wasVisible = isVisible();
+    const QPoint prevPos = pos();
+    const QSize prevSize = size();
+
+    if (visible) {
+        // Restore standard window decorations (title bar, minimize, maximize, close buttons)
+        setWindowFlags(Qt::Window | Qt::WindowStaysOnTopHint | Qt::WindowTitleHint |
+                       Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint |
+                       Qt::WindowCloseButtonHint);
+    } else {
+        // Frameless mode (content only, no title bar or border buttons)
+        setWindowFlags(Qt::Window | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint);
+    }
+
+    if (wasVisible) {
+        show();
+        move(prevPos);
+        resize(prevSize);
+#ifdef Q_OS_WIN
+        updateWindowsTitleBarTheme(ThemeProvider::isDark());
+#endif
+    }
+
+    // When standard window decorations & menu bar are visible, hide the custom frameless header
+    // When frameless (chrome hidden), show the custom header bar with the small X button
+    if (mHeaderBar)
+        mHeaderBar->setVisible(!visible);
+
+    setWindowButtonsVisible(visible);
+}
+
+void TokriWindow::toggleChrome()
+{
+    setChromeVisible(!mChromeVisible);
+}
+
+void TokriWindow::setWindowButtonsVisible(bool visible)
+{
+#if defined(Q_OS_WIN)
+    HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (!hwnd)
+        return;
+
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    if (visible) {
+        style |= WS_SYSMENU;
+    } else {
+        style &= ~WS_SYSMENU;
+    }
+    SetWindowLongPtr(hwnd, GWL_STYLE, style);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+#elif defined(Q_OS_MACOS)
+    // Note for macOS:
+    // [[window standardWindowButton:NSWindowCloseButton] setHidden:!visible];
+#elif defined(Q_OS_LINUX)
+    // Note for Linux:
+    // Handled by Qt::FramelessWindowHint above.
+#endif
+}
+
+void TokriWindow::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        QWindow *win = windowHandle();
+        if (!win && window()) {
+            win = window()->windowHandle();
+        }
+        if (win && win->startSystemMove()) {
+            event->accept();
+            return;
+        }
+        mDragPosition = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        event->accept();
+        return;
+    }
+    QMainWindow::mousePressEvent(event);
+}
+
+void TokriWindow::mouseMoveEvent(QMouseEvent *event)
+{
+    if (event->buttons() & Qt::LeftButton && !mDragPosition.isNull()) {
+        move(event->globalPosition().toPoint() - mDragPosition);
+        event->accept();
+        return;
+    }
+    QMainWindow::mouseMoveEvent(event);
+}
+
+void TokriWindow::resetInactivityTimer()
+{
+    if (isVisible()) {
+        mInactivityTimer.start();
+    }
+}
+
+void TokriWindow::onInactivityTimeout()
+{
+    // Do not sleep if a modal dialog (e.g. About, Shortcuts) or context menu is active
+    if (QApplication::activeModalWidget() || QApplication::activePopupWidget()) {
+        resetInactivityTimer();
+        return;
+    }
+
+    Logger::instance().log() << "Inactivity timeout (1 minute) -> sleep";
+    sleep();
+}
+
+bool TokriWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    QWidget *widget = qobject_cast<QWidget *>(watched);
+    if (widget && (widget == this || this->isAncestorOf(widget))) {
+        // Drag window by clicking and dragging on mHeaderBar (the top drag area)
+        if (mHeaderBar && (watched == mHeaderBar || mHeaderBar->isAncestorOf(widget))) {
+            if (widget != mCloseButton) {
+                if (event->type() == QEvent::MouseButtonPress) {
+                    auto *me = static_cast<QMouseEvent *>(event);
+                    if (me->button() == Qt::LeftButton) {
+                        resetInactivityTimer();
+                        QWindow *win = windowHandle();
+                        if (!win && window()) {
+                            win = window()->windowHandle();
+                        }
+                        if (win && win->startSystemMove()) {
+                            return true;
+                        }
+                        mDragPosition = me->globalPosition().toPoint() - frameGeometry().topLeft();
+                        return true;
+                    }
+                } else if (event->type() == QEvent::MouseMove) {
+                    auto *me = static_cast<QMouseEvent *>(event);
+                    if (me->buttons() & Qt::LeftButton && !mDragPosition.isNull()) {
+                        move(me->globalPosition().toPoint() - mDragPosition);
+                        resetInactivityTimer();
+                        return true;
+                    }
+                } else if (event->type() == QEvent::MouseButtonRelease) {
+                    mDragPosition = QPoint();
+                }
+            }
+        }
+
+        // Toggle window menu and window buttons on Alt key tap
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent *ke = static_cast<QKeyEvent *>(event);
+            if (ke->key() == Qt::Key_Alt) {
+                mAltKeyPressedAlone = true;
+            } else {
+                mAltKeyPressedAlone = false;
+            }
+        } else if (event->type() == QEvent::KeyRelease) {
+            QKeyEvent *ke = static_cast<QKeyEvent *>(event);
+            if (ke->key() == Qt::Key_Alt && mAltKeyPressedAlone && !ke->isAutoRepeat()) {
+                mAltKeyPressedAlone = false;
+                toggleChrome();
+                resetInactivityTimer();
+                return true;
+            } else {
+                mAltKeyPressedAlone = false;
+            }
+        }
+
+        // Reset 1-minute inactivity countdown on any user interaction
+        switch (event->type()) {
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonDblClick:
+        case QEvent::Wheel:
+        case QEvent::KeyPress:
+        case QEvent::KeyRelease:
+        case QEvent::DragEnter:
+        case QEvent::DragMove:
+        case QEvent::Drop:
+        case QEvent::TouchBegin:
+        case QEvent::TouchUpdate:
+        case QEvent::TouchEnd:
+        case QEvent::WindowActivate:
+            resetInactivityTimer();
+            break;
+        default:
+            break;
+        }
+    }
+
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void TokriWindow::applyTheme()
+{
+    const bool dark = ThemeProvider::isDark();
+    const QPalette pal = ThemeProvider::theme();
+
+    QApplication::setPalette(pal);
+    setPalette(pal);
+
+    if (ui->centralwidget)
+        ui->centralwidget->setPalette(pal);
+
+    if (ui->listView) {
+        ui->listView->setPalette(pal);
+        ui->listView->viewport()->setPalette(pal);
+    }
+
+    if (ui->menuBar)
+        ui->menuBar->setPalette(pal);
+
+    if (ui->menuView)
+        ui->menuView->setPalette(pal);
+
+    if (mCloseButton) {
+        if (dark) {
+            mCloseButton->setStyleSheet(
+                "QToolButton {"
+                "  background-color: rgba(255, 255, 255, 0.15);"
+                "  color: #cccccc;"
+                "  border-radius: 9px;"
+                "  border: none;"
+                "  font-size: 11px;"
+                "  font-weight: bold;"
+                "}"
+                "QToolButton:hover {"
+                "  background-color: rgba(255, 80, 80, 0.75);"
+                "  color: #ffffff;"
+                "}"
+                "QToolButton:pressed {"
+                "  background-color: rgba(200, 50, 50, 0.9);"
+                "  color: #ffffff;"
+                "}"
+            );
+        } else {
+            mCloseButton->setStyleSheet(
+                "QToolButton {"
+                "  background-color: rgba(0, 0, 0, 0.08);"
+                "  color: #555555;"
+                "  border-radius: 9px;"
+                "  border: none;"
+                "  font-size: 11px;"
+                "  font-weight: bold;"
+                "}"
+                "QToolButton:hover {"
+                "  background-color: rgba(230, 60, 60, 0.85);"
+                "  color: #ffffff;"
+                "}"
+                "QToolButton:pressed {"
+                "  background-color: rgba(190, 40, 40, 0.95);"
+                "  color: #ffffff;"
+                "}"
+            );
+        }
+    }
+
+    if (mDragHandle) {
+        if (dark) {
+            mDragHandle->setStyleSheet(
+                "QFrame {"
+                "  background-color: rgba(255, 255, 255, 0.40);"
+                "  border-radius: 2px;"
+                "}"
+            );
+        } else {
+            mDragHandle->setStyleSheet(
+                "QFrame {"
+                "  background-color: rgba(0, 0, 0, 0.22);"
+                "  border-radius: 2px;"
+                "}"
+            );
+        }
+    }
+
+#ifdef Q_OS_WIN
+    updateWindowsTitleBarTheme(dark);
+#endif
+    // Note for macOS:
+    // macOS AppKit manages window title bar chrome automatically based on NSAppearance.
+    // Note for Linux:
+    // Linux window managers (KWin, Mutter) theme title bars via XDG/portal settings.
+
+    WindowIcons::apply(*qApp, *this);
+
+    emit themeChanged(dark);
+
+    update();
+    if (ui->listView)
+        ui->listView->viewport()->update();
+}
+
+#ifdef Q_OS_WIN
+void TokriWindow::updateWindowsTitleBarTheme(bool dark)
+{
+    HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (!hwnd)
+        return;
+
+    BOOL darkMode = dark ? TRUE : FALSE;
+    // DWMWA_USE_IMMERSIVE_DARK_MODE is supported on Windows 11 and Windows 10 build 19041+
+    if (FAILED(DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode)))) {
+        // Fallback for Windows 10 build 1809 - 1909
+        DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
+    }
+
+    // Apply native modern rounded corners on Windows 11 (works for frameless and styled windows)
+    DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_ROUND;
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(corners));
+}
+#endif
+
+bool TokriWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+#ifdef Q_OS_WIN
+    if (eventType == "windows_generic_MSG") {
+        MSG *msg = static_cast<MSG *>(message);
+        if (msg->message == WM_SETTINGCHANGE) {
+            // Windows sends WM_SETTINGCHANGE when system theme (AppsUseLightTheme) changes
+            applyTheme();
+        }
+    }
+#else
+    Q_UNUSED(eventType);
+    Q_UNUSED(message);
+    Q_UNUSED(result);
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 

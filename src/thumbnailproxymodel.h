@@ -23,6 +23,7 @@ public:
 
 public slots:
     void setVisibleCount(int count);
+    void clearCache();
 
 private:
     void requestThumbnail(const QModelIndex &index) const;

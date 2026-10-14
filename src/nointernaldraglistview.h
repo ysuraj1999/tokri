@@ -1,10 +1,11 @@
 #ifndef NOINTERNALDRAGLISTVIEW_H
 #define NOINTERNALDRAGLISTVIEW_H
 
+#include <QItemSelectionModel>
 #include <QListView>
 #include <QObject>
 #include <QPainter>
-#include <QItemSelectionModel>
+#include <QTimer>
 
 class NoInternalDragListView : public QListView
 {
@@ -30,8 +31,14 @@ signals:
 
 private:
     void emitVisibleCount();
+    void setDragHovering(bool hovering);
+    void drawEmptyState(QPainter &p);
+    void drawDropFeedback(QPainter &p, const QRectF &rect);
 
     int mLastVisibleCount = -1;
+    bool mIsDragHovering = false;
+    qreal mDashOffset = 0.0;
+    QTimer mDragAnimationTimer;
 };
 
 #endif // NOINTERNALDRAGLISTVIEW_H

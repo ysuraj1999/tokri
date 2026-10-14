@@ -1,7 +1,9 @@
 #ifndef DROPAWAREFILESYSTEMMODEL_H
 #define DROPAWAREFILESYSTEMMODEL_H
 
+#include <QDateTime>
 #include <QFileSystemModel>
+#include <QHash>
 #include <QMimeData>
 
 class DropAwareFileSystemModel : public QFileSystemModel
@@ -32,6 +34,12 @@ signals:
     void dropReceived(QMimeData *data);
 
 private:
+    struct ToolTipCacheEntry {
+        QDateTime lastModified;
+        qint64 size = 0;
+        QString text;
+    };
+    mutable QHash<QString, ToolTipCacheEntry> mToolTipCache;
     QObject *mDropReceiver = nullptr;
 };
 

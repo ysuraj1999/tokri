@@ -2,6 +2,7 @@
 
 #include "loghelpers.h"
 
+#include <cmath>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -16,7 +17,9 @@
 
 namespace {
 constexpr int kPollTimeoutMs = 100;
-constexpr int kMaxAbsDelta = 50;
+// Maximum realistic single-event movement in normalized pixels (filters teleportation)
+constexpr int kMaxNormalizedDelta = 500;
+constexpr double kVirtualScreenWidth = 1920.0;
 
 bool has_bit(unsigned long *bits, int nr)
 {
@@ -29,8 +32,10 @@ LinuxDragShakeDetector::LinuxDragShakeDetector(QObject *parent)
     : QObject(parent)
 {
     scanDevices();
-    running = true;
-    worker = std::thread(&LinuxDragShakeDetector::workerLoop, this);
+    if (!devices.empty()) {
+        running = true;
+        worker = std::thread(&LinuxDragShakeDetector::workerLoop, this);
+    }
 }
 
 LinuxDragShakeDetector::~LinuxDragShakeDetector()
@@ -38,9 +43,9 @@ LinuxDragShakeDetector::~LinuxDragShakeDetector()
     running = false;
     if (worker.joinable())
         worker.join();
-    for (int fd : fds) {
-        if (fd >= 0)
-            ::close(fd);
+    for (const auto &dev : devices) {
+        if (dev.fd >= 0)
+            ::close(dev.fd);
     }
 }
 
@@ -51,11 +56,12 @@ void LinuxDragShakeDetector::scanDevices()
 
     DIR *dir = opendir("/dev/input");
     if (!dir) {
-        qCritical() << "Failed to open /dev/input";
-        exit(1);
+        qWarning() << "Failed to open /dev/input. Shake detection disabled.";
+        log.pop();
+        return;
     }
 
-    log.log() << "REL devices advertising REL_X:";
+    log.log() << "Scanning /dev/input for pointer devices:";
     struct dirent *ent;
     while ((ent = readdir(dir)) != nullptr) {
         if (strncmp(ent->d_name, "event", 5) != 0)
@@ -83,18 +89,48 @@ void LinuxDragShakeDetector::scanDevices()
 
         bool absX = false;
         bool absMtX = false;
+        int absXMin = 0, absXMax = 0;
+        int absMtXMin = 0, absMtXMax = 0;
+
         if (has_bit(evbits, EV_ABS)) {
             unsigned long absbits[ABS_MAX / (8 * sizeof(unsigned long)) + 1] = {};
             if (ioctl(probe, EVIOCGBIT(EV_ABS, sizeof(absbits)), absbits) >= 0) {
                 absX = has_bit(absbits, ABS_X);
                 absMtX = has_bit(absbits, ABS_MT_POSITION_X);
             }
+
+            if (absX) {
+                struct input_absinfo absInfo{};
+                if (ioctl(probe, EVIOCGABS(ABS_X), &absInfo) >= 0) {
+                    absXMin = absInfo.minimum;
+                    absXMax = absInfo.maximum;
+                }
+            }
+
+            if (absMtX) {
+                struct input_absinfo mtInfo{};
+                if (ioctl(probe, EVIOCGABS(ABS_MT_POSITION_X), &mtInfo) >= 0) {
+                    absMtXMin = mtInfo.minimum;
+                    absMtXMax = mtInfo.maximum;
+                }
+            }
         }
 
         if (relX || absX || absMtX) {
-            log.log() << path << (relX ? "rel" : "")
-                      << (absMtX ? "mt" : (absX ? "abs" : ""));
-            fds.push_back(probe);
+            log.log() << path << (relX ? " [rel]" : "")
+                      << (absX ? QString(" [abs: %1..%2]").arg(absXMin).arg(absXMax) : QString())
+                      << (absMtX ? QString(" [absMt: %1..%2]").arg(absMtXMin).arg(absMtXMax) : QString());
+
+            InputDevice dev;
+            dev.fd = probe;
+            dev.hasRelX = relX;
+            dev.hasAbsX = absX;
+            dev.hasAbsMtX = absMtX;
+            dev.absXMin = absXMin;
+            dev.absXMax = absXMax;
+            dev.absMtXMin = absMtXMin;
+            dev.absMtXMax = absMtXMax;
+            devices.push_back(dev);
         } else {
             ::close(probe);
         }
@@ -102,9 +138,9 @@ void LinuxDragShakeDetector::scanDevices()
 
     closedir(dir);
 
-    if (fds.empty()) {
-        qCritical() << "No input device with REL_X, ABS_X or ABS_MT_POSITION_X found";
-        exit(1);
+    if (devices.empty()) {
+        qWarning() << "No accessible input device with REL_X, ABS_X or ABS_MT_POSITION_X found in /dev/input."
+                   << "Shake detection requires read access to /dev/input (add user to 'input' group: sudo usermod -aG input $USER).";
     }
 
     log.pop();
@@ -115,9 +151,9 @@ void LinuxDragShakeDetector::workerLoop()
     Logger &log = Logger::instance();
     log.push("workerLoop");
 
-    std::vector<struct pollfd> pfds(fds.size());
-    for (size_t i = 0; i < fds.size(); ++i) {
-        pfds[i].fd = fds[i];
+    std::vector<struct pollfd> pfds(devices.size());
+    for (size_t i = 0; i < devices.size(); ++i) {
+        pfds[i].fd = devices[i].fd;
         pfds[i].events = POLLIN;
     }
 
@@ -138,9 +174,10 @@ void LinuxDragShakeDetector::workerLoop()
             if (!(pfds[i].revents & POLLIN))
                 continue;
 
-            ssize_t bytes = ::read(pfds[i].fd, buffer, sizeof(buffer));
+            InputDevice &dev = devices[i];
+            ssize_t bytes = ::read(dev.fd, buffer, sizeof(buffer));
             if (bytes <= 0) {
-                log.log() << "failed to read input events from fd" << pfds[i].fd;
+                log.log() << "failed to read input events from fd" << dev.fd;
                 continue;
             }
 
@@ -151,51 +188,52 @@ void LinuxDragShakeDetector::workerLoop()
                 if (ev.type == EV_KEY && ev.code == BTN_LEFT) {
                     if (ev.value == 1) {
                         leftPressed = true;
-                        hasAbs = false;
+                        for (auto &d : devices)
+                            d.hasAbs = false;
                     } else if (ev.value == 0) {
                         leftPressed = false;
-                        hasAbs = false;
+                        for (auto &d : devices)
+                            d.hasAbs = false;
                         detector.reset();
                     }
                     continue;
                 }
 
-                AxisMode evMode = AxisMode::None;
-                if (ev.type == EV_REL && ev.code == REL_X)
-                    evMode = AxisMode::Rel;
-                else if (ev.type == EV_ABS && ev.code == ABS_MT_POSITION_X)
-                    evMode = AxisMode::AbsMt;
-                else if (ev.type == EV_ABS && ev.code == ABS_X &&
-                         mode != AxisMode::AbsMt)
-                    evMode = AxisMode::AbsX;
+                int dx = 0;
+                if (ev.type == EV_REL && ev.code == REL_X) {
+                    dx = ev.value;
+                } else if (ev.type == EV_ABS && (ev.code == ABS_X || ev.code == ABS_MT_POSITION_X)) {
+                    const int minV = (ev.code == ABS_MT_POSITION_X) ? dev.absMtXMin : dev.absXMin;
+                    const int maxV = (ev.code == ABS_MT_POSITION_X) ? dev.absMtXMax : dev.absXMax;
+                    const int range = maxV - minV;
 
-                if (evMode == AxisMode::None)
-                    continue;
-
-                if (evMode != mode) {
-                    mode = evMode;
-                    hasAbs = false;
-                    detector.reset();
-                }
-
-                int dx = ev.value;
-                if (mode == AxisMode::AbsX || mode == AxisMode::AbsMt) {
-                    if (!hasAbs) {
-                        lastAbs = ev.value;
-                        hasAbs = true;
+                    if (!dev.hasAbs) {
+                        dev.lastAbs = ev.value;
+                        dev.hasAbs = true;
                         continue;
                     }
-                    dx = ev.value - lastAbs;
-                    lastAbs = ev.value;
-                }
 
-                if (std::abs(dx) > kMaxAbsDelta) {
-                    detector.reset();
+                    const int rawDx = ev.value - dev.lastAbs;
+                    dev.lastAbs = ev.value;
+
+                    if (range > 0) {
+                        dx = static_cast<int>(std::round(static_cast<double>(rawDx) * kVirtualScreenWidth / range));
+                    } else {
+                        dx = rawDx;
+                    }
+
+                    if (std::abs(dx) > kMaxNormalizedDelta) {
+                        detector.reset();
+                        continue;
+                    }
+                } else {
                     continue;
                 }
 
-                if (leftPressed && detector.feed(dx))
+                if (leftPressed && detector.feed(dx)) {
+                    log.log() << "Shake detected!";
                     emit shakeDetected();
+                }
             }
         }
     }

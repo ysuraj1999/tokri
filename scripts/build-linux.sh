@@ -18,6 +18,8 @@ rm -rf "${BUILD_DIR}" "${REPO_DIR}" "${BUNDLE}"
 mkdir -p "$(dirname "${BUNDLE}")"
 
 flatpak-builder \
+  --user \
+  --disable-rofiles-fuse \
   --force-clean \
   --default-branch="${BRANCH}" \
   --repo="${REPO_DIR}" \

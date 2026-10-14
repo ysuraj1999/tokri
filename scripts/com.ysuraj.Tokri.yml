@@ -7,6 +7,8 @@ finish-args:
   - --unset-env=GTK3_MODULES
   - --unset-env=SESSION_MANAGER
   - --socket=x11
+  - --socket=wayland
+  - --socket=fallback-x11
   - --share=ipc
   - --device=dri
   - --device=input
