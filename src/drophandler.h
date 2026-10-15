@@ -31,6 +31,7 @@ private:
     bool copyFile(const QString &filePath);
     bool copyDirectory(const QString &directory);
     bool saveFirstImage(const QMimeData *data);
+    bool saveRawFile(const QByteArray &bytes, const QString &name);
     bool saveImageBytes(const QByteArray &bytes, const QString &mimeType);
     bool saveImage(const QImage &image);
     bool saveUrl(const QString &url);

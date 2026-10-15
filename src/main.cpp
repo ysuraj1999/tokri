@@ -14,6 +14,7 @@
 #include "windowicons.h"
 
 #ifdef Q_OS_WIN
+#include "chromiummimeconverter.h"
 #include "windowsdragshakedetector.h"
 #endif
 
@@ -65,6 +66,7 @@ int main(int argc, char *argv[])
 
 #ifdef Q_OS_WIN
     a.setStyle(QStyleFactory::create("Fusion"));
+    new ChromiumMimeConverter;
 #endif
 
     a.setPalette(ThemeProvider::theme());

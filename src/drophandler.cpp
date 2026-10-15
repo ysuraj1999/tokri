@@ -1,5 +1,6 @@
 #include "drophandler.h"
 
+#include "chromiummimes.h"
 #include "filepathprovider.h"
 #include "loghelpers.h"
 #include "textfile.h"
@@ -227,6 +228,16 @@ bool DropHandler::saveFirstImage(const QMimeData *data)
 {
     Logger &log = Logger::instance();
 
+    const QByteArray raw =
+        data->data(QString::fromLatin1(TokriMime::FileContents));
+    if (!raw.isEmpty()) {
+        const QString name = QString::fromUtf8(
+            data->data(QString::fromLatin1(TokriMime::FileName)));
+        log.log() << "virtual-file bytes=" << raw.size() << "name=" << name;
+        if (saveRawFile(raw, name))
+            return true;
+    }
+
     for (const QString &format : data->formats()) {
         if (!format.startsWith("image/"))
             continue;
@@ -352,6 +363,28 @@ bool DropHandler::copyDirectory(const QString &directory)
 
     log.log() << "copyDirectory ok files=" << files
               << "dstFinal=" << dstFinal;
+    return true;
+}
+
+bool DropHandler::saveRawFile(const QByteArray &bytes, const QString &name)
+{
+    const QString base = name.isEmpty()
+        ? QUuid::createUuid().toString(QUuid::WithoutBraces)
+        : FilePathProvider::sanitizeName(name);
+
+    const QString path = FilePathProvider::uniquePath(
+        QDir(StandardPaths::getPath(StandardPaths::TokriDir)).filePath(base));
+
+    QFile out(path);
+    if (!out.open(QIODevice::WriteOnly) || out.write(bytes) == -1) {
+        Logger::instance().log() << "saveRawFile failed path=" << path
+                                 << "err=" << out.errorString();
+        emit failed(path);
+        return false;
+    }
+
+    Logger::instance().log() << "saveRawFile name=" << name
+                             << "bytes=" << bytes.size() << "path=" << path;
     return true;
 }
 

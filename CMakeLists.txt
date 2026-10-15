@@ -51,6 +51,8 @@ endif()
 set(WINDOWS_SOURCES "")
 if (WIN32)
     list(APPEND WINDOWS_SOURCES
+        src/chromiummimeconverter.h
+        src/chromiummimeconverter.cpp
         src/windowsdragshakedetector.h
         src/windowsdragshakedetector.cpp
     )
@@ -180,6 +182,7 @@ endif()
 if(WIN32)
     target_link_libraries(Tokri PRIVATE
         user32
+        ole32
     )
 endif()
 
