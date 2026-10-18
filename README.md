@@ -52,6 +52,31 @@ Set a global shortcut for Tokri using your OS or shortcut manager. Once configur
 >
 > Log out and log back in for the change to take effect.
 
+## Building
+
+Requires CMake 3.16+ and Qt 6 (Core, Gui, Widgets, Network, Concurrent; DBus is optional on Linux).
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+## Packaging
+
+| Platform | Command |
+| --- | --- |
+| macOS | `./packaging/macos/build.sh` |
+| Windows | `packaging\windows\build.bat` |
+| Linux (Flatpak) | `./packaging/linux/build.sh` |
+
+## Project layout
+
+Source is grouped by responsibility: `drop/` for turning MIME data into files,
+`models/` and `views/` for the basket UI, `windows/` for dialogs, and
+`platform/` for the per-OS differences. See
+[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full map and the drop /
+display data flow.
+
 ## Acknowledgements
 - [KDAB](https://www.youtube.com/@KDABtv) for their awesome Qt learning resources
 - 🎨 Icons and colors by [Akshay Majgaonkar](https://www.linkedin.com/in/akshay-majgaonkar/)

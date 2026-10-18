@@ -1,0 +1,65 @@
+#include "windows/helpwindow.h"
+
+#include <QFormLayout>
+#include <QLabel>
+
+namespace {
+
+struct Shortcut {
+    const char *action;
+    const char *keys;
+};
+
+#if defined(Q_OS_WIN)
+constexpr const char *TrashLabel = "Delete";
+#else
+constexpr const char *TrashLabel = "Move to Trash";
+#endif
+
+const Shortcut kShortcuts[] = {
+#ifdef Q_OS_MACOS
+    { "Open item",  "\u2318O" },
+    { "Copy",       "\u2318C" },
+    { "Paste",      "\u2318V" },
+    { "Rename",     "\u21A9" },
+    { TrashLabel,  "\u2318\u232B" },
+    { "Select all", "\u2318A" },
+    { "Hide basket", "Esc" },
+#else
+    { "Open item",  "Enter" },
+    { "Copy",       "Ctrl+C" },
+    { "Paste",      "Ctrl+V" },
+    { "Rename",     "F2" },
+    { TrashLabel,  "Delete" },
+    { "Select all", "Ctrl+A" },
+    { "Hide basket", "Esc" },
+#endif
+};
+
+} // namespace
+
+HelpWindow::HelpWindow(QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowTitle(tr("Keyboard Shortcuts"));
+    setModal(true);
+    setMinimumWidth(380);
+
+    auto *layout = new QFormLayout(this);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setHorizontalSpacing(48);
+    layout->setVerticalSpacing(8);
+    layout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+
+    for (const Shortcut &shortcut : kShortcuts) {
+        auto *action = new QLabel(tr(shortcut.action), this);
+        auto *keys = new QLabel(tr(shortcut.keys), this);
+        keys->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+
+        QFont font = keys->font();
+        font.setBold(true);
+        keys->setFont(font);
+
+        layout->addRow(action, keys);
+    }
+}
